@@ -1,0 +1,369 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: anthropic
+    description: Anthropic AI chat operations
+  - name: satomi
+    description: Satomi AI VTuber operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /anthropic/conversations:
+    get:
+      operationId: listAnthropicConversations
+      tags: [anthropic]
+      summary: List all conversations
+      responses:
+        "200":
+          description: List of conversations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AnthropicConversation"
+    post:
+      operationId: createAnthropicConversation
+      tags: [anthropic]
+      summary: Create a new conversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAnthropicConversationBody"
+      responses:
+        "201":
+          description: Created conversation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnthropicConversation"
+  /anthropic/conversations/{id}:
+    get:
+      operationId: getAnthropicConversation
+      tags: [anthropic]
+      summary: Get conversation with messages
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Conversation with messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnthropicConversationWithMessages"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnthropicError"
+    delete:
+      operationId: deleteAnthropicConversation
+      tags: [anthropic]
+      summary: Delete a conversation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnthropicError"
+  /anthropic/conversations/{id}/messages:
+    get:
+      operationId: listAnthropicMessages
+      tags: [anthropic]
+      summary: List messages in a conversation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AnthropicMessage"
+    post:
+      operationId: sendAnthropicMessage
+      tags: [anthropic]
+      summary: Send a message and receive an AI response (SSE stream)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendAnthropicMessageBody"
+      responses:
+        "200":
+          description: SSE stream of assistant response chunks
+          content:
+            text/event-stream: {}
+  /satomi/status:
+    get:
+      operationId: getSatomiStatus
+      tags: [satomi]
+      summary: Get Satomi connection status
+      responses:
+        "200":
+          description: Satomi status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SatomiStatus"
+  /satomi/stats:
+    get:
+      operationId: getSatomiStats
+      tags: [satomi]
+      summary: Get Satomi message statistics
+      responses:
+        "200":
+          description: Satomi stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SatomiStats"
+  /satomi/logs:
+    get:
+      operationId: getSatomiLogs
+      tags: [satomi]
+      summary: Get last 20 Satomi AI response logs
+      responses:
+        "200":
+          description: Log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SatomiLogEntry"
+  /satomi/test:
+    post:
+      operationId: testSatomi
+      tags: [satomi]
+      summary: Manually trigger a test Satomi response
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SatomiTestBody"
+      responses:
+        "200":
+          description: Test response triggered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SatomiTestResponse"
+  /satomi/config:
+    put:
+      operationId: updateSatomiConfig
+      tags: [satomi]
+      summary: Update Satomi configuration (token address)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SatomiConfigBody"
+      responses:
+        "200":
+          description: Config updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SatomiStatus"
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    AnthropicConversation:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - createdAt
+    AnthropicMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+        conversationId:
+          type: integer
+        role:
+          type: string
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - conversationId
+        - role
+        - content
+        - createdAt
+    CreateAnthropicConversationBody:
+      type: object
+      properties:
+        title:
+          type: string
+      required:
+        - title
+    SendAnthropicMessageBody:
+      type: object
+      properties:
+        content:
+          type: string
+      required:
+        - content
+    AnthropicConversationWithMessages:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnthropicMessage"
+      required:
+        - id
+        - title
+        - createdAt
+        - messages
+    AnthropicError:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+    SatomiStatus:
+      type: object
+      properties:
+        connected:
+          type: boolean
+        tokenAddress:
+          type: string
+        uptime:
+          type: number
+      required:
+        - connected
+        - tokenAddress
+        - uptime
+    SatomiStats:
+      type: object
+      properties:
+        messagesReceived:
+          type: number
+        triggerCount:
+          type: number
+        responsesGenerated:
+          type: number
+      required:
+        - messagesReceived
+        - triggerCount
+        - responsesGenerated
+    SatomiLogEntry:
+      type: object
+      properties:
+        username:
+          type: string
+        question:
+          type: string
+        response:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - username
+        - question
+        - response
+        - timestamp
+    SatomiTestBody:
+      type: object
+      properties:
+        username:
+          type: string
+        message:
+          type: string
+      required:
+        - username
+        - message
+    SatomiTestResponse:
+      type: object
+      properties:
+        response:
+          type: string
+      required:
+        - response
+    SatomiConfigBody:
+      type: object
+      properties:
+        tokenAddress:
+          type: string
+      required:
+        - tokenAddress
