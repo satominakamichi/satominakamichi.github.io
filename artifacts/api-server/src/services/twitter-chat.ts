@@ -11,6 +11,7 @@ const seenTweetIds = new Set<string>();
 const recentMessages = new Map<string, number>();
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let sinceId: string | null = null;
+let primed = false;
 
 function shouldProcess(username: string, message: string): boolean {
   const key = `${username}:${message.trim().toLowerCase()}`;
@@ -76,9 +77,15 @@ async function pollReplies(): Promise<void> {
       meta?: { newest_id?: string };
     };
 
-    if (!data.data || data.data.length === 0) return;
-
     if (data.meta?.newest_id) sinceId = data.meta.newest_id;
+
+    if (!primed) {
+      primed = true;
+      logger.info({ sinceId }, "Twitter poll primed — skipping existing replies");
+      return;
+    }
+
+    if (!data.data || data.data.length === 0) return;
 
     const userMap = new Map<string, string>();
     for (const u of data.includes?.users ?? []) userMap.set(u.id, u.username);
