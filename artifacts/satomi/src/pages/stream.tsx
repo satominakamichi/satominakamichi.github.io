@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { useSpeech, resumeAudioCtx } from "@/hooks/use-speech";
 import { SatomiWsEvent, useSatomiWs } from "@/hooks/use-satomi-ws";
 import { SatomiVRM } from "@/components/satomi-vrm";
@@ -31,12 +31,30 @@ export default function Stream() {
   const [currentGesture, setCurrentGesture] = useState<string | undefined>(undefined);
   const activatedRef = useRef(false);
   const emotionResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isSpeakingRef = useRef(false);
+  isSpeakingRef.current = isSpeaking;
+
+  const IDLE_GREET_MS = 2 * 60 * 1000;
+
+  const resetIdleTimer = useCallback(() => {
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    idleTimerRef.current = setTimeout(() => {
+      if (!activatedRef.current) return;
+      if (isSpeakingRef.current) { resetIdleTimer(); return; }
+      fetchWaveGreeting().then((text) => speak(text, "ask_satomi"));
+      resetIdleTimer();
+    }, IDLE_GREET_MS);
+  }, [speak]);
+
+  useEffect(() => () => { if (idleTimerRef.current) clearTimeout(idleTimerRef.current); }, []);
 
   const activateAudio = async () => {
     if (activatedRef.current) return;
     activatedRef.current = true;
     setAudioActivated(true);
     await resumeAudioCtx();
+    resetIdleTimer();
   };
 
   const handleWsEvent = (event: SatomiWsEvent) => {
@@ -46,6 +64,7 @@ export default function Stream() {
       setEmotion(detectedEmotion);
       if (event.gesture) setCurrentGesture(event.gesture);
       speak(event.response, event.username);
+      resetIdleTimer();
       if (emotionResetTimer.current) clearTimeout(emotionResetTimer.current);
       emotionResetTimer.current = setTimeout(() => {
         setEmotion("idle");
@@ -53,13 +72,15 @@ export default function Stream() {
       }, 12000);
     } else if (event.type === "trigger") {
       setHasNewTrigger(true);
+      resetIdleTimer();
       setTimeout(() => setHasNewTrigger(false), 500);
     }
   };
 
   const handleWave = useCallback(() => {
+    if (!activatedRef.current) return;
     if (isSpeaking) return;
-    fetchWaveGreeting().then((text) => speak(text, "SATOMI_AI"));
+    fetchWaveGreeting().then((text) => speak(text, "ask_satomi"));
   }, [isSpeaking, speak]);
 
   const { status, pairs } = useSatomiWs(handleWsEvent);
@@ -182,7 +203,7 @@ export default function Stream() {
                 <span className="text-white text-xs font-bold tracking-widest">LIVE</span>
               </div>
               <div className="text-white/40 text-xs font-mono">
-                {status.tokenAddress ? `${status.tokenAddress.slice(0, 8)}...` : "SATOMI NAKAMICHI"}
+                SATOMI NAKAMICHI
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -253,7 +274,7 @@ export default function Stream() {
 
         {/* ── RIGHT: Chat panel ────────────────────────────── */}
         <div
-          className="w-full md:w-[296px] flex-1 md:flex-none flex flex-col border-t md:border-t-0 md:border-l border-white/[0.07]"
+          className="w-full md:w-[296px] flex-1 md:flex-none flex flex-col border-t md:border-t-0 md:border-l border-white/[0.07] min-h-0"
         >
           {/* Panel header */}
           <div
@@ -297,7 +318,7 @@ export default function Stream() {
                       }}
                     >
                       {p.username[0]?.toUpperCase() ?? "?"}
-kk                    </div>
+                    </div>
                     <div className="flex-1 min-w-0">
                       <span className="text-[11px] font-semibold text-white/60 mr-1">@{p.username}</span>
                       <p className="text-[12px] text-white/80 leading-snug break-words">{p.message}</p>
@@ -368,7 +389,7 @@ kk                    </div>
                   </div>
                   <p className="font-black text-[26px] leading-none" style={{ color: "#1e1b4b" }}>SATOMI</p>
                   <p className="font-black text-[26px] leading-none mb-1" style={{ color: "#1e1b4b" }}>NAKAMICHI</p>
-                  <p className="text-[9px] font-mono mb-3" style={{ color: "#7c3aed88" }}>@satomi_ai • always online</p>
+                  <p className="text-[9px] font-mono mb-3" style={{ color: "#7c3aed88" }}>@ask_satomi • always online</p>
 
                   <div style={{ height: "1px", background: "#7c3aed30", marginBottom: "8px" }} />
 
