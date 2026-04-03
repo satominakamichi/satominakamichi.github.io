@@ -48,8 +48,9 @@ export default function Stream() {
   const [emotion, setEmotion] = useState<Emotion>("idle");
   const [audioActivated, setAudioActivated] = useState(false);
   const [currentGesture, setCurrentGesture] = useState<string | undefined>(undefined);
-  const activatedRef = useRef(false);
-  const emotionResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activatedRef       = useRef(false);
+  const emotionResetTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastWaveGreetRef   = useRef<number>(0); // timestamp of last wave TTS greeting
 
   const activateAudio = async () => {
     if (activatedRef.current) return;
@@ -86,6 +87,9 @@ export default function Stream() {
   const handleWave = useCallback(() => {
     if (!activatedRef.current) return;
     if (isSpeaking) return;
+    const now = Date.now();
+    if (now - lastWaveGreetRef.current < 10 * 60 * 1000) return; // max once per 10 min
+    lastWaveGreetRef.current = now;
     fetchWaveGreeting().then((text) => speak(text, "ask_satomi"));
   }, [isSpeaking, speak]);
 
