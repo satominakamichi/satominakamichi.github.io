@@ -54,7 +54,7 @@ export default function Stream() {
   const isSpeakingRef = useRef(false);
   isSpeakingRef.current = isSpeaking;
 
-  const IDLE_GREET_MS = 3 * 60 * 1000;
+  const IDLE_GREET_MS = 5 * 60 * 1000;
 
   const resetIdleTimer = useCallback(() => {
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
