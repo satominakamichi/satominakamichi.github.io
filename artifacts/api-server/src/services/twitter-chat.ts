@@ -124,7 +124,7 @@ export function startTwitterChat(): boolean {
 
   satomiState.connected = true;
   void pollReplies();
-  pollTimer = setInterval(() => void pollReplies(), 15_000);
+  pollTimer = setInterval(() => void pollReplies(), 60_000);
   return true;
 }
 
