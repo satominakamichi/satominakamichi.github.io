@@ -5,6 +5,25 @@ import { SatomiVRM } from "@/components/satomi-vrm";
 import { detectEmotion, Emotion } from "@/lib/emotion";
 import { apiUrl } from "@/lib/api-url";
 
+const LIVE_TWEET_URL = "https://x.com/ask_satomi/status/2040096148527153384";
+
+function TweetEmbed() {
+  return (
+    <div className="px-3 pt-2 pb-1">
+      <iframe
+        src="https://platform.twitter.com/embed/Tweet.html?id=2040096148527153384&theme=dark&conversation=none&dnt=true"
+        width="100%"
+        height="260"
+        frameBorder="0"
+        scrolling="no"
+        style={{ borderRadius: 12, display: "block" }}
+        title="Live tweet"
+        allowFullScreen
+      />
+    </div>
+  );
+}
+
 const GREET_FALLBACKS = [
   "hey hey! glad you're here~",
   "こんにちは！今日もよろしくね~",
@@ -308,6 +327,9 @@ export default function Stream() {
               {pairs.length > 0 && <span>{pairs.length}</span>}
             </div>
           </div>
+
+          {/* Pinned live tweet embed */}
+          <TweetEmbed />
 
           {/* Chat messages - scrollable */}
           <div className="relative z-10 flex-1 overflow-y-auto flex flex-col-reverse px-3 py-2 md:py-3 gap-2 md:gap-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
