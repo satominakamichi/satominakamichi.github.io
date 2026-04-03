@@ -172,7 +172,7 @@ router.post("/greet", async (_req, res) => {
   try {
     const { text } = await generateSatomiResponse(
       "ask_satomi",
-      "[WAVE_GREETING] You just waved hello to viewers. Give a short, casual, natural greeting — no more than 15 words. Sometimes use Japanese, sometimes English, mix it up. Be yourself, keep it fresh.",
+      "[IDLE_GREETING] Nobody has talked to you for a minute so you say something naturally to fill the air — could be a random thought, a chill check-in, a joke, a Japanese phrase, a vibe, whatever. Under 15 words. Don't force it. Mix English and Japanese freely. Never repeat yourself.",
     );
     res.json({ text });
   } catch {
