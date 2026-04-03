@@ -2,7 +2,6 @@ import http from "http";
 import app from "./app.js";
 import { logger } from "./lib/logger.js";
 import { createSatomiWebSocketServer } from "./services/satomi-ws.js";
-import { startPumpFunChat } from "./services/pumpfun-chat.js";
 import { startTwitterChat } from "./services/twitter-chat.js";
 
 const rawPort = process.env["PORT"];
@@ -25,8 +24,11 @@ createSatomiWebSocketServer(server);
 
 server.listen(port, () => {
   logger.info({ port }, "Server listening");
-  startPumpFunChat();
-  startTwitterChat();
+  if (process.env.NODE_ENV === "production") {
+    startTwitterChat();
+  } else {
+    logger.info("Development mode — Twitter polling disabled");
+  }
 });
 
 server.on("error", (err) => {
