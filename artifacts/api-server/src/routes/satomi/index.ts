@@ -6,6 +6,23 @@ import { broadcastToClients } from "../../services/satomi-ws.js";
 import { satomiConfig } from "../../services/satomi.config.js";
 import { synthesizeSpeech } from "../../services/satomi-tts.js";
 
+const recentIdleGreetings: string[] = [];
+const MAX_RECENT_GREETINGS = 15;
+
+function trackGreeting(text: string) {
+  recentIdleGreetings.push(text);
+  if (recentIdleGreetings.length > MAX_RECENT_GREETINGS) {
+    recentIdleGreetings.shift();
+  }
+}
+
+function buildGreetPrompt(): string {
+  const base = "[IDLE_GREETING] Nobody has talked to you for a bit so you say something naturally to fill the air — could be a random thought, a chill check-in, a joke, a Japanese phrase, a vibe, whatever. Under 15 words. Don't force it. Mix English and Japanese freely.";
+  if (recentIdleGreetings.length === 0) return base;
+  const avoidList = recentIdleGreetings.map((g, i) => `${i + 1}. "${g}"`).join(" | ");
+  return `${base} You MUST NOT repeat or closely paraphrase anything you already said recently. Recent greetings to avoid: ${avoidList}`;
+}
+
 const GetSatomiStatusResponse = z.object({
   connected: z.boolean(),
   uptime: z.number(),
@@ -170,10 +187,8 @@ router.post("/test", async (req, res) => {
 
 router.post("/greet", async (_req, res) => {
   try {
-    const { text } = await generateSatomiResponse(
-      "ask_satomi",
-      "[IDLE_GREETING] Nobody has talked to you for a minute so you say something naturally to fill the air — could be a random thought, a chill check-in, a joke, a Japanese phrase, a vibe, whatever. Under 15 words. Don't force it. Mix English and Japanese freely. Never repeat yourself.",
-    );
+    const { text } = await generateSatomiResponse("ask_satomi", buildGreetPrompt());
+    trackGreeting(text);
     res.json({ text });
   } catch {
     res.json({ text: "hey hey! glad you're here~" });
