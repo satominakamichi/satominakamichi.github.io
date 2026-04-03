@@ -122,6 +122,7 @@ export function startTwitterChat(): boolean {
 
   logger.info({ tweetId: LIVE_TWEET_ID }, "Twitter live chat started");
 
+  satomiState.connected = true;
   void pollReplies();
   pollTimer = setInterval(() => void pollReplies(), 15_000);
   return true;
