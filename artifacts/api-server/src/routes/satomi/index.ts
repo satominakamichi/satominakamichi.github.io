@@ -195,10 +195,11 @@ router.post("/greet", async (_req, res) => {
   }
 });
 
-const SpeakBody = z.object({ text: z.string().min(1).max(500) });
+const SpeakBody = z.object({ text: z.string().min(1).max(1000) });
 
 router.post("/speak", async (req, res) => {
-  const { text } = SpeakBody.parse(req.body);
+  const { text: rawText } = SpeakBody.parse(req.body);
+  const text = rawText.length > 900 ? rawText.slice(0, 900).replace(/\s+\S*$/, "…") : rawText;
   try {
     const audio = await synthesizeSpeech(text);
     res.set("Content-Type", "audio/mpeg");
