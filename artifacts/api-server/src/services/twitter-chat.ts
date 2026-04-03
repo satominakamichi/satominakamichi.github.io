@@ -81,7 +81,9 @@ async function pollReplies(): Promise<void> {
 
     if (!primed) {
       primed = true;
-      logger.info({ sinceId }, "Twitter poll primed — skipping existing replies");
+      // Mark all existing tweet IDs as seen so they are never re-processed
+      for (const tweet of data.data ?? []) seenTweetIds.add(tweet.id);
+      logger.info({ sinceId, skipped: seenTweetIds.size }, "Twitter poll primed — skipping existing replies");
       return;
     }
 
