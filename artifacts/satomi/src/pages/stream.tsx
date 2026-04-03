@@ -35,7 +35,7 @@ export default function Stream() {
   const isSpeakingRef = useRef(false);
   isSpeakingRef.current = isSpeaking;
 
-  const IDLE_GREET_MS = 2 * 60 * 1000;
+  const IDLE_GREET_MS = 1 * 60 * 1000;
 
   const resetIdleTimer = useCallback(() => {
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
@@ -192,7 +192,7 @@ export default function Stream() {
       {/* ── Main frame (full screen, no border) ────────────── */}
       <div className="relative w-full h-full flex flex-col md:flex-row">
         {/* ── LEFT: Avatar section ─────────────────────────── */}
-        <div className="w-full md:w-1/2 h-1/2 md:h-full relative flex flex-col overflow-hidden">
+        <div className="w-full md:w-1/2 h-full relative flex flex-col overflow-hidden">
 
 
           {/* Top bar */}
@@ -248,7 +248,7 @@ export default function Stream() {
           </div>
 
           {/* Subtitle bar */}
-          <div className="absolute bottom-5 left-5 right-5 z-30">
+          <div className="absolute bottom-[42vh] md:bottom-5 left-5 right-5 z-30">
             {currentSpeech ? (
               <div
                 className="backdrop-blur-md border px-6 py-3.5 rounded-xl shadow-[0_0_30px_rgba(0,0,0,0.8)] relative overflow-hidden transition-all duration-300"
@@ -273,12 +273,26 @@ export default function Stream() {
         </div>
 
         {/* ── RIGHT: Chat panel ────────────────────────────── */}
+        {/* Mobile: absolute overlay at bottom. Desktop: side panel */}
         <div
-          className="w-full md:w-[296px] flex-1 md:flex-none flex flex-col border-t md:border-t-0 md:border-l border-white/[0.07] min-h-0"
+          className="
+            absolute bottom-0 left-0 right-0 z-40
+            md:static md:z-auto
+            w-full md:w-[296px] md:flex-none
+            flex flex-col
+            md:border-t-0 md:border-l border-white/[0.07]
+            min-h-0
+            max-h-[38vh] md:max-h-full md:h-full
+            rounded-t-2xl md:rounded-none
+          "
         >
+          {/* Mobile: glass background. Desktop: transparent (dark bg from parent) */}
+          <div className="md:hidden absolute inset-0 pointer-events-none rounded-t-2xl"
+            style={{ background: "rgba(6,6,18,0.88)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", borderTop: "1px solid rgba(255,255,255,0.09)" }} />
+
           {/* Panel header */}
           <div
-            className="px-4 py-3.5 flex items-center justify-between"
+            className="relative z-10 px-4 py-2.5 md:py-3.5 flex items-center justify-between"
             style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
           >
             <div className="flex items-center gap-2">
@@ -293,7 +307,7 @@ export default function Stream() {
           </div>
 
           {/* Chat messages - scrollable */}
-          <div className="flex-1 overflow-y-auto flex flex-col-reverse px-3 py-3 gap-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="relative z-10 flex-1 overflow-y-auto flex flex-col-reverse px-3 py-2 md:py-3 gap-2 md:gap-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {pairs.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
                 <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
@@ -343,7 +357,7 @@ export default function Stream() {
 
           {/* Panel footer */}
           <div
-            className="px-4 py-3 flex flex-col gap-1"
+            className="relative z-10 px-4 py-2 md:py-3 flex flex-col gap-1"
             style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
           >
             <p className="text-[10px] text-white/25 leading-tight">
