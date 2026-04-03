@@ -4,7 +4,7 @@ import { wsUrl as getWsUrl } from "@/lib/api-url";
 export type SatomiWsEvent =
   | { type: "trigger"; username: string; message: string; timestamp: number }
   | { type: "response"; username: string; question: string; response: string; gesture?: string; timestamp: number }
-  | { type: "status"; connected: boolean; tokenAddress: string };
+  | { type: "status"; connected: boolean };
 
 export interface SatomiPair {
   username: string;
@@ -14,9 +14,8 @@ export interface SatomiPair {
 }
 
 export function useSatomiWs(onEvent?: (event: SatomiWsEvent) => void) {
-  const [status, setStatus] = useState<{ connected: boolean; tokenAddress: string; wsOpen: boolean }>({
+  const [status, setStatus] = useState<{ connected: boolean; wsOpen: boolean }>({
     connected: false,
-    tokenAddress: "",
     wsOpen: false,
   });
   const [pairs, setPairs] = useState<SatomiPair[]>([]);
@@ -49,15 +48,9 @@ export function useSatomiWs(onEvent?: (event: SatomiWsEvent) => void) {
             if (onEventRef.current) onEventRef.current(data);
 
             if (data.type === "status") {
-              setStatus({ connected: data.connected, tokenAddress: data.tokenAddress });
+              setStatus((prev) => ({ ...prev, connected: data.connected }));
             } else if (data.type === "trigger") {
-              setPairs((prev) => {
-                const updated: SatomiPair[] = [
-                  ...prev,
-                  { username: data.username, message: data.message, timestamp: data.timestamp },
-                ];
-                return updated.length > 5 ? updated.slice(updated.length - 5) : updated;
-              });
+              // trigger is used for animation only — pairs are added by "response" event
             } else if (data.type === "response") {
               setPairs((prev) => {
                 const idx = [...prev].reverse().findIndex(
