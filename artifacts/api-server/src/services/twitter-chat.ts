@@ -106,8 +106,7 @@ async function pollReplies(): Promise<void> {
         timestamp: Date.now(),
       });
 
-      const hasTrigger = message.toLowerCase().includes("satomi");
-      if (hasTrigger && shouldProcess(username, message)) {
+      if (shouldProcess(username, message)) {
         logger.info({ username, message }, "Twitter reply triggered");
         await handleTrigger(username, message);
       }
