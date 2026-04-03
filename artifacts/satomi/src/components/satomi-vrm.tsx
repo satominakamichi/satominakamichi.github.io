@@ -232,12 +232,21 @@ const G = {
   // 29 — FRONT_BOTH: both arms directly in front of chest, elbows bent — "here's the thing"
   FRONT_BOTH:[-0.72, 0.95,  0.72, 0.95,   0.30, -1.30, -0.30,  1.30, -0.05, 0.04,-0.05, 0.04,  0.10, 0.10,  0, 0],
 
-  // 30 — WAVE_R: right arm raised HIGH beside head, elbow bent, palm open
-  //  NOTE: rArm.rotation.y override applied in wave section (supinate = palm faces camera)
-  WAVE_R:    [-1.30, 0.00, -0.80, 0.30,   0.00,  0.00, -0.10, 0.90, -0.35, 0.00, 0.08, 0.00,  0.10, 0.04,  0, 0],
+  // 30 — WAVE_R: right arm raised HIGH beside head, elbow bent, palm open toward camera
+  //  rArm.rotation.y lerped via rArmYRef (→ 0.90 = supinate palm to camera); rHand wave animated in override
+  WAVE_R:    [-1.30, 0.00, -0.82, 0.40,   0.00,  0.00,  0.10, 1.30, -0.35, 0.00, 0.08, 0.00,  0.10, 0.04,  0, 0],
 
   // 31 — REST_L: both arms hanging, clean neutral
   REST_L:    [-1.20, 0.08,  1.30, 0.05,   0.00,  0.10,  0.00, -0.06, -0.04, 0.00,-0.06, 0.00,  0.12, 0.14,  0, 0],
+
+  // 32 — ARM_HUG: left hand gently rubs/holds right forearm at belly level (self-soothing)
+  //   Right arm mostly down, forearm folded inward at belly.
+  //   Left arm comes forward and across, open palm resting on right forearm.
+  ARM_HUG:   [-0.92, 0.58,  1.02, 0.22,  -0.48, -0.42,  0.42,  0.62,   0.16, 0.12,-0.06, 0.04,  0.18, 0.28,  0, 0],
+
+  // 33 — PALM_PRAY: both hands clasped palm-to-palm in front of chest, elbows clearly bent
+  //   Both arms forward at chest height, elbows at ~90°, palms meet at center.
+  PALM_PRAY: [-0.95, 0.72,  0.95, 0.72,   0.06, -0.82, -0.06,  0.82,   0.00, 0.14, 0.00,-0.14,  0.36, 0.36,  0, 0],
 };
 
 // ── Speaking pool: high energy, fast switch (1.2–2.0s) ─────────────────────
@@ -257,6 +266,7 @@ const IDLE_POOL = [
   G.REST,       G.REST_L,     G.WAIST,      G.CLASP_LOW,
   G.HIP_R,      G.HIP_L,      G.CLASP,      G.CLASP_LOW,
   G.WAVE_R,     G.WAVE_R,
+  G.ARM_HUG,    G.PALM_PRAY,
 ];
 
 // ─── Bone cache (populated once after VRM loads) ─────────────────────────────
@@ -376,6 +386,7 @@ function SatomiVRMCanvas({ mouthState, isSpeaking, emotion, hasNewTrigger, overr
   // Arm lerp state — 14-value arrays matching gesture format
   const armTargetRef  = useRef([...G.WAIST]);
   const armCurrentRef = useRef([...G.WAIST]);
+  const rArmYRef      = useRef(0); // lerped rArm.rotation.y (0 = rest, 0.90 = WAVE_R supination)
   const gestureRef    = useRef({
     // speaking gesture state
     idx: 0, timer: 0, switchAt: 1.4,
@@ -815,9 +826,12 @@ function SatomiVRMCanvas({ mouthState, isSpeaking, emotion, hasNewTrigger, overr
       b.rSho.rotation.z = -(rElev * 0.18) - breathSway * 0.4; // elevation + breathing sway
     }
 
-    // Upper arm — direct mapping, no twist by default
+    // Upper arm — lerp rArm.rotation.y smoothly (0 = rest, 0.90 = WAVE_R supination)
+    const targetRArmY = (em === "idle" && IDLE_POOL[gs.idleIdx] === G.WAVE_R) ? 0.90 : 0.0;
+    rArmYRef.current += (targetRArmY - rArmYRef.current) * Math.min(delta * 4.0, 1);
+
     if (b.lArm) { b.lArm.rotation.z = cur[0] - armSway; b.lArm.rotation.x = +cur[1]; b.lArm.rotation.y = 0; }
-    if (b.rArm) { b.rArm.rotation.z = cur[2] + armSway; b.rArm.rotation.x = +cur[3]; b.rArm.rotation.y = 0; }
+    if (b.rArm) { b.rArm.rotation.z = cur[2] + armSway; b.rArm.rotation.x = +cur[3]; b.rArm.rotation.y = rArmYRef.current; }
 
     // Forearm — x NEGATED: lFore x POS = elbow toward cam, rFore x NEG = elbow toward cam
     if (b.lFore) { b.lFore.rotation.z = -cur[4]; b.lFore.rotation.x = -cur[5] + breathSway * 0.5; b.lFore.rotation.y = 0; }
@@ -827,18 +841,9 @@ function SatomiVRMCanvas({ mouthState, isSpeaking, emotion, hasNewTrigger, overr
     if (b.lHand) { b.lHand.rotation.x = cur[8];  b.lHand.rotation.y = 0; b.lHand.rotation.z = cur[9]  + breathSway * 0.3; }
     if (b.rHand) { b.rHand.rotation.x = cur[10]; b.rHand.rotation.y = 0; b.rHand.rotation.z = cur[11] - breathSway * 0.3; }
 
-    // ── WAVE_R: right arm raised, palm facing camera ─────────────────────────
+    // ── WAVE_R: rArm & rFore handled by lerp (gesture array values match target)
+    // Only rHand needs override for the waving animation
     if (em === "idle" && IDLE_POOL[gs.idleIdx] === G.WAVE_R) {
-      if (b.rArm) {
-        b.rArm.rotation.z = -0.82;  // arm raised (rArm NEG = UP)
-        b.rArm.rotation.x =  0.40;  // slightly forward
-        b.rArm.rotation.y = +0.90;  // POSITIVE = palm toward camera
-      }
-      if (b.rFore) {
-        b.rFore.rotation.z = -0.10;
-        b.rFore.rotation.x = -1.30; // NEGATIVE = elbow toward camera (rFore x NEG = toward cam)
-        b.rFore.rotation.y =  0;
-      }
       if (b.rHand) {
         b.rHand.rotation.x = 0.45 + Math.sin(t * 7.0) * 0.42;
         b.rHand.rotation.y =  0;
