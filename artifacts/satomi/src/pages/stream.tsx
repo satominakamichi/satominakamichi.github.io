@@ -40,14 +40,17 @@ export default function Stream() {
   const resetIdleTimer = useCallback(() => {
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     idleTimerRef.current = setTimeout(() => {
-      if (!activatedRef.current) return;
       if (isSpeakingRef.current) { resetIdleTimer(); return; }
       fetchWaveGreeting().then((text) => speak(text, "ask_satomi"));
       resetIdleTimer();
     }, IDLE_GREET_MS);
   }, [speak]);
 
-  useEffect(() => () => { if (idleTimerRef.current) clearTimeout(idleTimerRef.current); }, []);
+  // Start idle timer immediately on mount — no click required
+  useEffect(() => {
+    resetIdleTimer();
+    return () => { if (idleTimerRef.current) clearTimeout(idleTimerRef.current); };
+  }, [resetIdleTimer]);
 
   const activateAudio = async () => {
     if (activatedRef.current) return;
