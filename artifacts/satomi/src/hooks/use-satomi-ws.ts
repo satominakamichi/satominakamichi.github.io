@@ -4,6 +4,7 @@ import { wsUrl as getWsUrl } from "@/lib/api-url";
 export type SatomiWsEvent =
   | { type: "trigger"; username: string; message: string; timestamp: number }
   | { type: "response"; username: string; question: string; response: string; gesture?: string; timestamp: number }
+  | { type: "greeting"; text: string; gesture?: string; timestamp: number }
   | { type: "status"; connected: boolean };
 
 export interface SatomiPair {
