@@ -2,16 +2,13 @@ import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { satomiState, addLog } from "../../services/satomi-state.js";
 import { generateSatomiResponse } from "../../services/satomi-ai.js";
-import { reconnectPumpFunChat, getIntakeMode } from "../../services/pumpfun-chat.js";
 import { broadcastToClients } from "../../services/satomi-ws.js";
 import { satomiConfig } from "../../services/satomi.config.js";
 import { synthesizeSpeech } from "../../services/satomi-tts.js";
 
 const GetSatomiStatusResponse = z.object({
   connected: z.boolean(),
-  tokenAddress: z.string(),
   uptime: z.number(),
-  intakeMode: z.enum(["websocket", "polling", "idle"]),
   config: z.object({
     triggerWord: z.string(),
     spamWindowMs: z.number(),
@@ -95,21 +92,12 @@ const SPEAK_POOL_NAMES = [
   "MIC_R","MIC_BOTH","OPEN_R","OPEN_BOTH","FRONT_BOTH",
 ];
 
-const UpdateSatomiConfigBody = z.object({ tokenAddress: z.string() });
-const UpdateSatomiConfigResponse = z.object({
-  connected: z.boolean(),
-  tokenAddress: z.string(),
-  uptime: z.number(),
-});
-
 const router: IRouter = Router();
 
 router.get("/status", (_req, res) => {
   const data = GetSatomiStatusResponse.parse({
     connected: satomiState.connected,
-    tokenAddress: satomiState.tokenAddress,
     uptime: (Date.now() - satomiState.startTime) / 1000,
-    intakeMode: getIntakeMode(),
     config: {
       triggerWord: satomiConfig.triggerWord,
       spamWindowMs: satomiConfig.spamWindowMs,
@@ -180,22 +168,10 @@ router.post("/test", async (req, res) => {
   res.json(result);
 });
 
-router.put("/config", (req, res) => {
-  const body = UpdateSatomiConfigBody.parse(req.body);
-  reconnectPumpFunChat(body.tokenAddress);
-
-  const data = UpdateSatomiConfigResponse.parse({
-    connected: satomiState.connected,
-    tokenAddress: satomiState.tokenAddress,
-    uptime: (Date.now() - satomiState.startTime) / 1000,
-  });
-  res.json(data);
-});
-
 router.post("/greet", async (_req, res) => {
   try {
     const { text } = await generateSatomiResponse(
-      "SATOMI_AI",
+      "ask_satomi",
       "[WAVE_GREETING] You just waved hello to viewers. Give a short, casual, natural greeting — no more than 15 words. Sometimes use Japanese, sometimes English, mix it up. Be yourself, keep it fresh.",
     );
     res.json({ text });
