@@ -13,6 +13,34 @@ let pollTimer: ReturnType<typeof setInterval> | null = null;
 let sinceId: string | null = null;
 let primed = false;
 
+// ── Server-side idle greeting ─────────────────────────────────────────────────
+const IDLE_GREET_MS = 5 * 60 * 1000;
+let idleGreetTimer: ReturnType<typeof setTimeout> | null = null;
+const recentIdleGreetings: string[] = [];
+
+function buildGreetPrompt(): string {
+  const base = "[IDLE_GREETING] Nobody has talked to you for a bit so you say something naturally to fill the air — could be a random thought, a chill check-in, a joke, a Japanese phrase, a vibe, whatever. Under 15 words. Don't force it. Mix English and Japanese freely.";
+  if (recentIdleGreetings.length === 0) return base;
+  const avoidList = recentIdleGreetings.map((g, i) => `${i + 1}. "${g}"`).join(" | ");
+  return `${base} You MUST NOT repeat or closely paraphrase anything you already said recently. Recent greetings to avoid: ${avoidList}`;
+}
+
+function scheduleIdleGreet(): void {
+  if (idleGreetTimer) clearTimeout(idleGreetTimer);
+  idleGreetTimer = setTimeout(async () => {
+    try {
+      const { text, gesture } = await generateSatomiResponse("__idle__", buildGreetPrompt());
+      recentIdleGreetings.push(text);
+      if (recentIdleGreetings.length > 15) recentIdleGreetings.shift();
+      broadcastToClients({ type: "greeting", text, gesture, timestamp: Date.now() });
+      logger.info({ text }, "Idle greeting broadcast");
+    } catch (err) {
+      logger.error({ err }, "Idle greeting failed");
+    }
+    scheduleIdleGreet();
+  }, IDLE_GREET_MS);
+}
+
 function shouldProcess(username: string, message: string): boolean {
   const key = `${username}:${message.trim().toLowerCase()}`;
   const lastSeen = recentMessages.get(key) ?? 0;
@@ -24,6 +52,7 @@ function shouldProcess(username: string, message: string): boolean {
 
 async function handleTrigger(username: string, message: string): Promise<void> {
   satomiState.triggerCount++;
+  scheduleIdleGreet(); // reset idle timer on every incoming tweet
 
   broadcastToClients({
     type: "trigger",
@@ -133,6 +162,7 @@ export function startTwitterChat(): boolean {
   satomiState.connected = true;
   void pollReplies();
   pollTimer = setInterval(() => void pollReplies(), 60_000);
+  scheduleIdleGreet();
   return true;
 }
 
@@ -140,6 +170,10 @@ export function stopTwitterChat(): void {
   if (pollTimer) {
     clearInterval(pollTimer);
     pollTimer = null;
+  }
+  if (idleGreetTimer) {
+    clearTimeout(idleGreetTimer);
+    idleGreetTimer = null;
   }
 }
 
