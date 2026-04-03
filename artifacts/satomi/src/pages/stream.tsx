@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback } from "react";
 import { useSpeech, resumeAudioCtx } from "@/hooks/use-speech";
 import { SatomiWsEvent, useSatomiWs } from "@/hooks/use-satomi-ws";
 import { SatomiVRM } from "@/components/satomi-vrm";
@@ -50,54 +50,38 @@ export default function Stream() {
   const [currentGesture, setCurrentGesture] = useState<string | undefined>(undefined);
   const activatedRef = useRef(false);
   const emotionResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isSpeakingRef = useRef(false);
-  isSpeakingRef.current = isSpeaking;
-
-  const IDLE_GREET_MS = 5 * 60 * 1000;
-
-  const resetIdleTimer = useCallback(() => {
-    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-    idleTimerRef.current = setTimeout(() => {
-      if (isSpeakingRef.current) { resetIdleTimer(); return; }
-      fetchWaveGreeting().then((text) => speak(text, "ask_satomi"));
-      resetIdleTimer();
-    }, IDLE_GREET_MS);
-  }, [speak]);
-
-  // Start idle timer immediately on mount — no click required
-  useEffect(() => {
-    resetIdleTimer();
-    return () => { if (idleTimerRef.current) clearTimeout(idleTimerRef.current); };
-  }, [resetIdleTimer]);
 
   const activateAudio = async () => {
     if (activatedRef.current) return;
     activatedRef.current = true;
     setAudioActivated(true);
     await resumeAudioCtx();
-    resetIdleTimer();
   };
 
-  const handleWsEvent = (event: SatomiWsEvent) => {
+  const handleWsEvent = useCallback((event: SatomiWsEvent) => {
     if (event.type === "response") {
       const combined = event.question + " " + event.response;
       const detectedEmotion = detectEmotion(combined);
       setEmotion(detectedEmotion);
       if (event.gesture) setCurrentGesture(event.gesture);
       speak(event.response, event.username);
-      resetIdleTimer();
       if (emotionResetTimer.current) clearTimeout(emotionResetTimer.current);
       emotionResetTimer.current = setTimeout(() => {
         setEmotion("idle");
         setCurrentGesture(undefined);
       }, 12000);
+    } else if (event.type === "greeting") {
+      if (event.gesture) setCurrentGesture(event.gesture);
+      speak(event.text, "ask_satomi");
+      if (emotionResetTimer.current) clearTimeout(emotionResetTimer.current);
+      emotionResetTimer.current = setTimeout(() => {
+        setCurrentGesture(undefined);
+      }, 8000);
     } else if (event.type === "trigger") {
       setHasNewTrigger(true);
-      resetIdleTimer();
       setTimeout(() => setHasNewTrigger(false), 500);
     }
-  };
+  }, [speak]);
 
   const handleWave = useCallback(() => {
     if (!activatedRef.current) return;
