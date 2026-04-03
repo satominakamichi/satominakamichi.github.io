@@ -187,8 +187,11 @@ export function useSpeech() {
     if (busy.current || queue.current.length === 0) return;
     busy.current = true;
     const item = queue.current.shift()!;
+    // Show subtitle immediately — before audio so text always appears even if TTS fails
+    if (mounted.current) { setIsSpeaking(true); setCurrentSpeech(item); }
     playEdgeTTS(item).catch(() => {
       busy.current = false;
+      if (mounted.current) { setIsSpeaking(false); setCurrentSpeech(null); }
       processNext();
     });
   }
