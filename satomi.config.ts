@@ -1,5 +1,4 @@
 export const SATOMI_CONFIG = {
-  tokenMintAddress: process.env.PUMP_TOKEN_MINT ?? "",
   triggerWord: "satomi",
   spamWindowMs: 10_000,
 
@@ -13,3 +12,4 @@ export const SATOMI_CONFIG = {
 
   wsPath: "/satomi-ws",
 } as const;
+
