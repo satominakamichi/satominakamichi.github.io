@@ -25,7 +25,7 @@ createSatomiWebSocketServer(server);
 server.listen(port, () => {
   logger.info({ port }, "Server listening");
   if (process.env.NODE_ENV === "production") {
-    startTwitterChat();
+    void startTwitterChat();
   } else {
     logger.info("Development mode — Twitter polling disabled");
   }
