@@ -31,14 +31,15 @@ const GREET_FALLBACKS = [
   "hiii! ask me anything~",
 ];
 
-async function fetchWaveGreeting(): Promise<string> {
+async function fetchWaveGreeting(): Promise<string | null> {
   try {
     const res = await fetch(apiUrl("/api/satomi/greet"), { method: "POST" });
+    if (res.status === 429) return null; // server cooldown — skip silently
     if (!res.ok) throw new Error("greet failed");
     const data = await res.json() as { text: string };
     return data.text;
   } catch {
-    return GREET_FALLBACKS[Math.floor(Math.random() * GREET_FALLBACKS.length)];
+    return null;
   }
 }
 
@@ -50,7 +51,6 @@ export default function Stream() {
   const [currentGesture, setCurrentGesture] = useState<string | undefined>(undefined);
   const activatedRef       = useRef(false);
   const emotionResetTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastWaveGreetRef   = useRef<number>(0); // timestamp of last wave TTS greeting
 
   const activateAudio = async () => {
     if (activatedRef.current) return;
@@ -87,10 +87,9 @@ export default function Stream() {
   const handleWave = useCallback(() => {
     if (!activatedRef.current) return;
     if (isSpeaking) return;
-    const now = Date.now();
-    if (now - lastWaveGreetRef.current < 10 * 60 * 1000) return; // max once per 10 min
-    lastWaveGreetRef.current = now;
-    fetchWaveGreeting().then((text) => speak(text, "ask_satomi"));
+    fetchWaveGreeting().then((text) => {
+      if (text) speak(text, "ask_satomi"); // null = server cooldown, skip
+    });
   }, [isSpeaking, speak]);
 
   const { status, pairs } = useSatomiWs(handleWsEvent);
