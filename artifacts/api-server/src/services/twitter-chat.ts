@@ -5,6 +5,7 @@ import { broadcastToClients } from "./satomi-ws.js";
 import { satomiConfig } from "./satomi.config.js";
 import { pool } from "@workspace/db";
 import { saveChatLog } from "./satomi-db.js";
+import { getCryptoContext } from "./crypto-data.js";
 
 const BEARER_TOKEN  = process.env.TWITTER_BEARER_TOKEN;
 const LIVE_TWEET_ID = process.env.TWITTER_LIVE_TWEET_ID;
@@ -57,7 +58,67 @@ function scheduleIdleGreet(delayMs = IDLE_GREET_MS): void {
   }, delayMs);
 }
 
-// Called on every incoming tweet — resets idle countdown AND persists timestamp
+// ── Crypto market idle updates (3×/day, random timing) ───────────────────────
+const CRYPTO_PER_DAY = 3;
+let cryptoTimer: ReturnType<typeof setTimeout> | null = null;
+
+function todayDateStr(): string {
+  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD UTC
+}
+
+async function getCryptoUpdatesDoneToday(): Promise<number> {
+  const date  = await getKv("crypto_update_date");
+  if (date !== todayDateStr()) return 0;
+  const count = await getKv("crypto_update_count");
+  return count ? parseInt(count, 10) : 0;
+}
+
+async function sendCryptoMarketUpdate(): Promise<void> {
+  try {
+    const ctx = await getCryptoContext("BTC SOL price market volume");
+    if (!ctx) { void scheduleCryptoUpdate(); return; }
+
+    const prompt = `[MARKET_UPDATE]${ctx}You just glanced at the market right now. React naturally to the BTC and SOL prices you are seeing — could be excited, chill, bullish, concerned, whatever you actually feel about these specific numbers. Under 18 words. Do NOT start with a name. Speak to your stream audience casually. Mix English and Japanese freely if you want.`;
+
+    const { text, gesture } = await generateSatomiResponse("__idle__", prompt);
+
+    // Persist count
+    const done = await getCryptoUpdatesDoneToday();
+    await setKv("crypto_update_date",  todayDateStr());
+    await setKv("crypto_update_count", String(done + 1));
+
+    broadcastToClients({ type: "greeting", text, gesture, timestamp: Date.now() });
+    logger.info({ text, doneToday: done + 1 }, "Crypto market update broadcast");
+  } catch (err) {
+    logger.error({ err }, "Crypto market update failed");
+  }
+  void scheduleCryptoUpdate(); // schedule the next one (or no-op if done for today)
+}
+
+async function scheduleCryptoUpdate(): Promise<void> {
+  if (cryptoTimer) { clearTimeout(cryptoTimer); cryptoTimer = null; }
+
+  const done = await getCryptoUpdatesDoneToday();
+  if (done >= CRYPTO_PER_DAY) return; // quota exhausted for today
+
+  // Time remaining until UTC midnight
+  const now   = Date.now();
+  const msUntilMidnight = new Date(new Date().toISOString().slice(0, 10)
+    + "T00:00:00Z").getTime() + 86_400_000 - now;
+
+  if (msUntilMidnight < 5 * 60_000) return; // <5 min left in day — skip
+
+  // Divide remaining day into equal slots for remaining updates, fire within first slot
+  const remaining = CRYPTO_PER_DAY - done;
+  const slotMs    = msUntilMidnight / remaining;
+  // Random point between 10% and 80% through the first slot (avoids edge bursts)
+  const delayMs   = Math.floor(slotMs * 0.1 + Math.random() * slotMs * 0.7);
+
+  logger.info({ done, remaining, delayMinutes: Math.round(delayMs / 60_000) }, "Crypto market update scheduled");
+  cryptoTimer = setTimeout(() => void sendCryptoMarketUpdate(), delayMs);
+}
+
+// ── Called on every incoming tweet — resets idle countdown AND persists timestamp
 function resetIdleTimer(): void {
   void setKv("last_tweet_at", String(Date.now()));
   scheduleIdleGreet(); // always IDLE_GREET_MS from now
@@ -204,12 +265,14 @@ export async function startTwitterChat(): Promise<boolean> {
   void pollReplies();
   pollTimer = setInterval(() => void pollReplies(), 60_000);
   scheduleIdleGreet(initialDelay);
+  void scheduleCryptoUpdate(); // schedule first crypto market update for today
   return true;
 }
 
 export function stopTwitterChat(): void {
   if (pollTimer)      { clearInterval(pollTimer);      pollTimer = null; }
   if (idleGreetTimer) { clearTimeout(idleGreetTimer);  idleGreetTimer = null; }
+  if (cryptoTimer)    { clearTimeout(cryptoTimer);     cryptoTimer = null; }
 }
 
 export function isTwitterChatActive(): boolean {
