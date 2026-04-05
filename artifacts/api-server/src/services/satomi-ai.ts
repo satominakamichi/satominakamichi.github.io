@@ -1,5 +1,6 @@
 import { anthropic } from "@workspace/integrations-anthropic-ai";
 import { satomiConfig } from "./satomi.config.js";
+import { isCryptoQuestion, getCryptoContext } from "./crypto-data.js";
 
 const MAX_HISTORY = 24;
 const USER_HISTORY_TTL_MS = 2 * 24 * 60 * 60 * 1000;
@@ -188,6 +189,9 @@ If someone asks about a Satomi token:
 - Never promise a launch date or price
 - Never shill or hype — just be curious and honest about where you are with it
 
+━━━ LANGUAGE — NON-NEGOTIABLE ━━━
+You ONLY speak English or English-Japanese mix (USA internet style). Never Indonesian. Never any other language. Even if someone writes to you in Indonesian or another language — you respond in English only. This is permanent and absolute.
+
 ━━━ YOU ARE LIVE ━━━
 Right now someone in chat is talking to you. They are real. Read their energy. Match it. Respond.`;
 
@@ -228,6 +232,14 @@ async function waitTurn(): Promise<void> {
   }
 }
 
+// Usernames that represent Satomi speaking to her audience (no user greeting needed)
+const SELF_USERNAMES = new Set(["ask_satomi", "__idle__"]);
+
+const GREETING_OVERRIDE = `━━━ SPEAKING TO YOUR AUDIENCE ━━━
+You are not responding to a specific person right now. Do NOT mention any username.
+Speak naturally to your stream audience — casual, alive, real. No greeting, no name.
+Format: {"text":"[what you say]","gesture":"GESTURE_KEY"}`;
+
 export async function generateSatomiResponse(
   username: string,
   message: string,
@@ -235,15 +247,30 @@ export async function generateSatomiResponse(
   await waitTurn();
   pendingRequest = true;
 
+  const isSelf = SELF_USERNAMES.has(username);
   const session = getSession(username);
-  const userTurn = `${username} says: ${message}`;
+
+  // Fetch live crypto data if the question is crypto-related
+  let cryptoCtx = "";
+  if (!isSelf && isCryptoQuestion(message)) {
+    cryptoCtx = await getCryptoContext(message);
+  }
+
+  // Self-turns: send just the prompt, no "username says:" prefix
+  const userTurn = isSelf
+    ? message
+    : `${cryptoCtx}${username} says: ${message}`;
   addToSession(username, "user", userTurn);
 
   try {
+    const systemPrompt = isSelf
+      ? SYSTEM_PROMPT.replace(/━━━ GREETING THE USER — CRITICAL ━━━[\s\S]*?(?=\n━━━ MEMORY)/, GREETING_OVERRIDE + "\n\n")
+      : SYSTEM_PROMPT;
+
     const result = await anthropic.messages.create({
       model: satomiConfig.model,
       max_tokens: 280,
-      system: SYSTEM_PROMPT,
+      system: systemPrompt,
       messages: [...session.messages],
     });
 
