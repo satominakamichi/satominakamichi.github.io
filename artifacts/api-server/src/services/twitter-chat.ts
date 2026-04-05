@@ -74,19 +74,19 @@ function shouldProcess(username: string, message: string): boolean {
 }
 
 // ── Handle incoming tweet ─────────────────────────────────────────────────────
-async function handleTrigger(username: string, message: string): Promise<void> {
+async function handleTrigger(username: string, message: string, avatarUrl?: string): Promise<void> {
   satomiState.triggerCount++;
   resetIdleTimer();
 
-  broadcastToClients({ type: "trigger", username, message, timestamp: Date.now() });
+  broadcastToClients({ type: "trigger", username, message, avatarUrl, timestamp: Date.now() });
 
   const { text: response, gesture } = await generateSatomiResponse(username, message);
   satomiState.responsesGenerated++;
 
   addLog({ username, question: message, response, timestamp: new Date() });
 
-  // Persist to DB so every device that connects later gets the same history
-  void saveChatLog({ username, question: message, response, timestamp: Date.now() });
+  // Persist to DB (with avatarUrl) so every device that connects later gets the same history
+  void saveChatLog({ username, question: message, response, avatarUrl, timestamp: Date.now() });
 
   broadcastToClients({
     type: "response",
@@ -94,6 +94,7 @@ async function handleTrigger(username: string, message: string): Promise<void> {
     question: message,
     response,
     gesture,
+    avatarUrl,
     timestamp: Date.now(),
   });
 }
@@ -109,7 +110,7 @@ async function pollReplies(): Promise<void> {
     url.searchParams.set("max_results",  "10");
     url.searchParams.set("tweet.fields", "author_id,created_at,text");
     url.searchParams.set("expansions",   "author_id");
-    url.searchParams.set("user.fields",  "username");
+    url.searchParams.set("user.fields",  "username,profile_image_url");
     if (sinceId) url.searchParams.set("since_id", sinceId);
 
     const res = await fetch(url.toString(), {
@@ -124,7 +125,7 @@ async function pollReplies(): Promise<void> {
 
     const data = await res.json() as {
       data?:     Array<{ id: string; text: string; author_id: string }>;
-      includes?: { users?: Array<{ id: string; username: string }> };
+      includes?: { users?: Array<{ id: string; username: string; profile_image_url?: string }> };
       meta?:     { newest_id?: string };
     };
 
@@ -137,21 +138,30 @@ async function pollReplies(): Promise<void> {
 
     if (!data.data || data.data.length === 0) return;
 
-    const userMap = new Map<string, string>();
-    for (const u of data.includes?.users ?? []) userMap.set(u.id, u.username);
+    const userMap = new Map<string, { username: string; avatarUrl?: string }>();
+    for (const u of data.includes?.users ?? []) {
+      userMap.set(u.id, {
+        username:  u.username,
+        avatarUrl: u.profile_image_url
+          ? u.profile_image_url.replace("_normal", "_bigger") // get 73px instead of 48px
+          : undefined,
+      });
+    }
 
     for (const tweet of data.data) {
       if (seenTweetIds.has(tweet.id)) continue;
       seenTweetIds.add(tweet.id);
 
-      const username = userMap.get(tweet.author_id) ?? `user_${tweet.author_id.slice(-4)}`;
-      const message  = tweet.text.replace(/@\w+\s*/g, "").trim();
+      const user      = userMap.get(tweet.author_id);
+      const username  = user?.username ?? `user_${tweet.author_id.slice(-4)}`;
+      const avatarUrl = user?.avatarUrl;
+      const message   = tweet.text.replace(/@\w+\s*/g, "").trim();
 
       satomiState.messagesReceived++;
 
       if (shouldProcess(username, message)) {
         logger.info({ username, message }, "Twitter reply triggered");
-        await handleTrigger(username, message);
+        await handleTrigger(username, message, avatarUrl);
       }
     }
   } catch (err) {
