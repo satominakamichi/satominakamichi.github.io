@@ -2,14 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import { wsUrl as getWsUrl } from "@/lib/api-url";
 
 export type SatomiWsEvent =
-  | { type: "trigger"; username: string; message: string; timestamp: number }
+  | { type: "trigger";  username: string; message: string; timestamp: number }
   | { type: "response"; username: string; question: string; response: string; gesture?: string; timestamp: number }
   | { type: "greeting"; text: string; gesture?: string; timestamp: number }
-  | { type: "status"; connected: boolean };
+  | { type: "history";  pairs: Array<{ username: string; question: string; response: string; timestamp: number }> }
+  | { type: "status";   connected: boolean };
 
 export interface SatomiPair {
-  username: string;
-  message: string;
+  username:  string;
+  message:   string;
   response?: string;
   timestamp: number;
 }
@@ -17,20 +18,18 @@ export interface SatomiPair {
 export function useSatomiWs(onEvent?: (event: SatomiWsEvent) => void) {
   const [status, setStatus] = useState<{ connected: boolean; wsOpen: boolean }>({
     connected: false,
-    wsOpen: false,
+    wsOpen:    false,
   });
   const [pairs, setPairs] = useState<SatomiPair[]>([]);
 
   const onEventRef = useRef(onEvent);
-  useEffect(() => {
-    onEventRef.current = onEvent;
-  });
+  useEffect(() => { onEventRef.current = onEvent; });
 
   useEffect(() => {
     const wsUrl = getWsUrl();
 
-    let ws: WebSocket | null = null;
-    let reconnectTimer: number | null = null;
+    let ws:             WebSocket | null = null;
+    let reconnectTimer: number   | null = null;
     let stopped = false;
 
     const connect = () => {
@@ -50,27 +49,38 @@ export function useSatomiWs(onEvent?: (event: SatomiWsEvent) => void) {
 
             if (data.type === "status") {
               setStatus((prev) => ({ ...prev, connected: data.connected }));
+
+            } else if (data.type === "history") {
+              // Seed initial history so every device starts in sync
+              const seeded: SatomiPair[] = data.pairs.map((p) => ({
+                username:  p.username,
+                message:   p.question,
+                response:  p.response,
+                timestamp: p.timestamp,
+              }));
+              setPairs(seeded.slice(-5));
+
             } else if (data.type === "trigger") {
-              // trigger is used for animation only — pairs are added by "response" event
+              // animation only — pair added by "response" event
+
             } else if (data.type === "response") {
               setPairs((prev) => {
+                // Try to fill a pending pair (trigger arrived first)
                 const idx = [...prev].reverse().findIndex(
                   (p) => p.username === data.username && !p.response,
                 );
+                let updated: SatomiPair[];
                 if (idx === -1) {
-                  const newPair: SatomiPair = {
-                    username: data.username,
-                    message: data.question,
-                    response: data.response,
-                    timestamp: data.timestamp,
-                  };
-                  const updated = [...prev, newPair];
-                  return updated.length > 5 ? updated.slice(updated.length - 5) : updated;
+                  updated = [
+                    ...prev,
+                    { username: data.username, message: data.question, response: data.response, timestamp: data.timestamp },
+                  ];
+                } else {
+                  const realIdx = prev.length - 1 - idx;
+                  updated = prev.map((p, i) =>
+                    i === realIdx ? { ...p, response: data.response } : p,
+                  );
                 }
-                const realIdx = prev.length - 1 - idx;
-                const updated = prev.map((p, i) =>
-                  i === realIdx ? { ...p, response: data.response } : p,
-                );
                 return updated.length > 5 ? updated.slice(updated.length - 5) : updated;
               });
             }
@@ -82,19 +92,13 @@ export function useSatomiWs(onEvent?: (event: SatomiWsEvent) => void) {
         ws.onclose = () => {
           console.log("Satomi WS Disconnected");
           setStatus((prev) => ({ ...prev, connected: false, wsOpen: false }));
-          if (!stopped) {
-            reconnectTimer = window.setTimeout(connect, 3000);
-          }
+          if (!stopped) reconnectTimer = window.setTimeout(connect, 3000);
         };
 
-        ws.onerror = () => {
-          console.error("Satomi WS Error");
-        };
+        ws.onerror = () => { console.error("Satomi WS Error"); };
       } catch (e) {
         console.error("Failed to connect to WS", e);
-        if (!stopped) {
-          reconnectTimer = window.setTimeout(connect, 3000);
-        }
+        if (!stopped) reconnectTimer = window.setTimeout(connect, 3000);
       }
     };
 
