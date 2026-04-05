@@ -324,10 +324,24 @@ export default function Stream() {
             ) : (
               [...pairs].reverse().map((p, i) => (
                 <div key={`${p.timestamp}-${i}`} className="flex flex-col gap-1 animate-in slide-in-from-bottom-2 fade-in duration-300">
+                  {/* User message */}
                   <div className="flex items-start gap-2.5">
+                    {p.avatarUrl ? (
+                      <img
+                        src={p.avatarUrl}
+                        alt={p.username}
+                        className="w-7 h-7 rounded-full flex-shrink-0 mt-0.5 object-cover"
+                        onError={(e) => {
+                          const el = e.currentTarget;
+                          el.style.display = "none";
+                          if (el.nextSibling) (el.nextSibling as HTMLElement).style.display = "flex";
+                        }}
+                      />
+                    ) : null}
                     <div
-                      className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5"
+                      className="w-7 h-7 rounded-full items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5"
                       style={{
+                        display: p.avatarUrl ? "none" : "flex",
                         background: `hsl(${(p.username.charCodeAt(0) * 47) % 360}, 65%, 35%)`,
                         color: "rgba(255,255,255,0.9)",
                       }}
@@ -339,11 +353,14 @@ export default function Stream() {
                       <p className="text-[12px] text-white/80 leading-snug break-words">{p.message}</p>
                     </div>
                   </div>
+                  {/* Satomi response */}
                   {p.response && (
                     <div className="flex items-start gap-2.5 ml-0.5">
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5 bg-primary/20 border border-primary/30">
-                        <span className="text-primary text-[9px]">S</span>
-                      </div>
+                      <img
+                        src={`${import.meta.env.BASE_URL}satomi-pfp.jpg`}
+                        alt="Satomi"
+                        className="w-7 h-7 rounded-full flex-shrink-0 mt-0.5 object-cover object-top"
+                      />
                       <div className="flex-1 min-w-0">
                         <span className="text-[11px] font-semibold text-primary/70 mr-1">SATOMI</span>
                         <p className="text-[11px] text-white/50 leading-snug break-words">{p.response}</p>
