@@ -4,6 +4,7 @@ import { generateSatomiResponse } from "./satomi-ai.js";
 import { broadcastToClients } from "./satomi-ws.js";
 import { satomiConfig } from "./satomi.config.js";
 import { pool } from "@workspace/db";
+import { saveChatLog } from "./satomi-db.js";
 
 const BEARER_TOKEN  = process.env.TWITTER_BEARER_TOKEN;
 const LIVE_TWEET_ID = process.env.TWITTER_LIVE_TWEET_ID;
@@ -83,6 +84,9 @@ async function handleTrigger(username: string, message: string): Promise<void> {
   satomiState.responsesGenerated++;
 
   addLog({ username, question: message, response, timestamp: new Date() });
+
+  // Persist to DB so every device that connects later gets the same history
+  void saveChatLog({ username, question: message, response, timestamp: Date.now() });
 
   broadcastToClients({
     type: "response",
