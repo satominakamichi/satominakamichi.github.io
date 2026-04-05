@@ -257,7 +257,7 @@ export default function Stream() {
           </div>
 
           {/* Subtitle bar */}
-          <div className="absolute bottom-[42vh] md:bottom-5 left-5 right-5 z-30">
+          <div className="absolute bottom-[52vh] md:bottom-5 left-5 right-5 z-30">
             {currentSpeech ? (
               <div
                 className="backdrop-blur-md border px-6 py-3.5 rounded-xl shadow-[0_0_30px_rgba(0,0,0,0.8)] relative overflow-hidden transition-all duration-300"
@@ -281,27 +281,17 @@ export default function Stream() {
           </div>
         </div>
 
-        {/* ── RIGHT: Chat panel ────────────────────────────── */}
-        {/* Mobile: absolute overlay at bottom. Desktop: side panel */}
+        {/* ── RIGHT: Chat panel (desktop) ──────────────────── */}
         <div
           className="
-            absolute bottom-0 left-0 right-0 z-40
-            md:static md:z-auto
-            w-full md:w-[296px] md:flex-none
-            flex flex-col
-            md:border-t-0 md:border-l border-white/[0.07]
-            min-h-0
-            max-h-[38vh] md:max-h-full md:h-full
-            rounded-t-2xl md:rounded-none
+            hidden md:flex
+            w-[296px] flex-none flex-col h-full
+            border-l border-white/[0.07]
           "
         >
-          {/* Mobile: glass background. Desktop: transparent (dark bg from parent) */}
-          <div className="md:hidden absolute inset-0 pointer-events-none rounded-t-2xl"
-            style={{ background: "rgba(6,6,18,0.88)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", borderTop: "1px solid rgba(255,255,255,0.09)" }} />
-
           {/* Panel header */}
           <div
-            className="relative z-10 px-4 py-2.5 md:py-3.5 flex items-center justify-between"
+            className="px-4 py-3.5 flex items-center justify-between flex-shrink-0"
             style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
           >
             <div className="flex items-center gap-2">
@@ -319,7 +309,7 @@ export default function Stream() {
           <TweetEmbed />
 
           {/* Chat messages - scrollable */}
-          <div className="relative z-10 flex-1 overflow-y-auto flex flex-col-reverse px-3 py-2 md:py-3 gap-2 md:gap-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex-1 overflow-y-auto flex flex-col-reverse px-3 py-3 gap-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {pairs.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
                 <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
@@ -334,7 +324,6 @@ export default function Stream() {
             ) : (
               [...pairs].reverse().map((p, i) => (
                 <div key={`${p.timestamp}-${i}`} className="flex flex-col gap-1 animate-in slide-in-from-bottom-2 fade-in duration-300">
-                  {/* User message */}
                   <div className="flex items-start gap-2.5">
                     <div
                       className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5"
@@ -350,7 +339,6 @@ export default function Stream() {
                       <p className="text-[12px] text-white/80 leading-snug break-words">{p.message}</p>
                     </div>
                   </div>
-                  {/* Satomi response */}
                   {p.response && (
                     <div className="flex items-start gap-2.5 ml-0.5">
                       <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5 bg-primary/20 border border-primary/30">
@@ -369,7 +357,7 @@ export default function Stream() {
 
           {/* Panel footer */}
           <div
-            className="relative z-10 px-4 py-2 md:py-3 flex flex-col gap-1"
+            className="px-4 py-3 flex flex-col gap-1 flex-shrink-0"
             style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
           >
             <p className="text-[10px] text-white/25 leading-tight">
@@ -381,6 +369,53 @@ export default function Stream() {
                 {status.connected ? "CONNECTED" : "CONNECTING…"}
               </span>
             </div>
+          </div>
+        </div>
+
+        {/* ── MOBILE: Watch on Twitter card ────────────────── */}
+        <div className="md:hidden absolute bottom-0 left-0 right-0 z-40 flex flex-col"
+          style={{ background: "rgba(6,6,18,0.92)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderTop: "1px solid rgba(255,255,255,0.09)" }}
+        >
+          {/* Handle bar */}
+          <div className="flex justify-center pt-2.5 pb-1">
+            <div className="w-10 h-1 rounded-full bg-white/20" />
+          </div>
+
+          {/* Title row */}
+          <div className="flex items-center justify-between px-5 pb-2">
+            <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-1.5 bg-red-600/90 px-2.5 py-0.5 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                <span className="text-white text-[10px] font-bold tracking-widest">LIVE</span>
+              </div>
+              <span className="text-white/60 text-xs font-semibold">Satomi Nakamichi</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+              <span className="text-[10px] font-mono text-green-400/70">
+                {status.connected ? "LIVE" : "…"}
+              </span>
+            </div>
+          </div>
+
+          {/* Tweet embed */}
+          <TweetEmbed />
+
+          {/* CTA button */}
+          <div className="px-5 py-4">
+            <a
+              href={LIVE_TWEET_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center justify-center gap-2.5 w-full py-3.5 rounded-xl font-bold text-sm text-white transition-opacity active:opacity-70"
+              style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.253 5.622 5.911-5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+              </svg>
+              Watch Live on X / Twitter
+            </a>
           </div>
         </div>
 
@@ -478,9 +513,9 @@ export default function Stream() {
         </div>
       </div>
 
-      {/* Click-to-activate hint */}
+      {/* Click-to-activate hint — desktop only */}
       {!audioActivated && (
-        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+        <div className="hidden md:block absolute bottom-5 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
           <div className="text-[10px] text-white/25 font-mono bg-black/40 px-3 py-1.5 rounded-full border border-white/10">
             click anywhere to enable audio
           </div>
