@@ -2,16 +2,17 @@ import { useEffect, useRef, useState } from "react";
 import { wsUrl as getWsUrl } from "@/lib/api-url";
 
 export type SatomiWsEvent =
-  | { type: "trigger";  username: string; message: string; timestamp: number }
-  | { type: "response"; username: string; question: string; response: string; gesture?: string; timestamp: number }
+  | { type: "trigger";  username: string; message: string; avatarUrl?: string; timestamp: number }
+  | { type: "response"; username: string; question: string; response: string; gesture?: string; avatarUrl?: string; timestamp: number }
   | { type: "greeting"; text: string; gesture?: string; timestamp: number }
-  | { type: "history";  pairs: Array<{ username: string; question: string; response: string; timestamp: number }> }
+  | { type: "history";  pairs: Array<{ username: string; question: string; response: string; avatarUrl?: string; timestamp: number }> }
   | { type: "status";   connected: boolean };
 
 export interface SatomiPair {
   username:  string;
   message:   string;
   response?: string;
+  avatarUrl?: string;
   timestamp: number;
 }
 
@@ -51,21 +52,20 @@ export function useSatomiWs(onEvent?: (event: SatomiWsEvent) => void) {
               setStatus((prev) => ({ ...prev, connected: data.connected }));
 
             } else if (data.type === "history") {
-              // Seed initial history so every device starts in sync
               const seeded: SatomiPair[] = data.pairs.map((p) => ({
                 username:  p.username,
                 message:   p.question,
                 response:  p.response,
+                avatarUrl: p.avatarUrl,
                 timestamp: p.timestamp,
               }));
               setPairs(seeded.slice(-5));
 
             } else if (data.type === "trigger") {
-              // animation only — pair added by "response" event
+              // animation only
 
             } else if (data.type === "response") {
               setPairs((prev) => {
-                // Try to fill a pending pair (trigger arrived first)
                 const idx = [...prev].reverse().findIndex(
                   (p) => p.username === data.username && !p.response,
                 );
@@ -73,12 +73,12 @@ export function useSatomiWs(onEvent?: (event: SatomiWsEvent) => void) {
                 if (idx === -1) {
                   updated = [
                     ...prev,
-                    { username: data.username, message: data.question, response: data.response, timestamp: data.timestamp },
+                    { username: data.username, message: data.question, response: data.response, avatarUrl: data.avatarUrl, timestamp: data.timestamp },
                   ];
                 } else {
                   const realIdx = prev.length - 1 - idx;
                   updated = prev.map((p, i) =>
-                    i === realIdx ? { ...p, response: data.response } : p,
+                    i === realIdx ? { ...p, response: data.response, avatarUrl: data.avatarUrl ?? p.avatarUrl } : p,
                   );
                 }
                 return updated.length > 5 ? updated.slice(updated.length - 5) : updated;
